@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Ignore module build outputs
+/app/build/
+
+# Ignore Gradle outputs
+/app/build/**/intermediates/
+/app/build/**/outputs/
