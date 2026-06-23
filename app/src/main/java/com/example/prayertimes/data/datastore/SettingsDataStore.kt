@@ -12,6 +12,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.prayertimes.data.model.AppSettings
 import com.example.prayertimes.data.model.CalculationMethodOption
 import com.example.prayertimes.data.model.MadhabOption
+import com.example.prayertimes.data.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.catch
@@ -57,7 +58,7 @@ class SettingsDataStore(private val context: Context) {
         private val KEY_ASR_SOUND = stringPreferencesKey("asr_sound")
         private val KEY_MAGHRIB_SOUND = stringPreferencesKey("maghrib_sound")
         private val KEY_ISHA_SOUND = stringPreferencesKey("isha_sound")
-        private val KEY_IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        private val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         private val KEY_AUDIO_QUALITY = stringPreferencesKey("audio_quality")
     }
 
@@ -69,17 +70,17 @@ class SettingsDataStore(private val context: Context) {
             longitude = prefs[KEY_LONGITUDE] ?: 0.0,
             cityName = prefs[KEY_CITY_NAME] ?: "",
             calculationMethod = CalculationMethodOption.values().getOrElse(
-                prefs[KEY_CALC_METHOD] ?: 0
-            ) { CalculationMethodOption.MUSLIM_WORLD_LEAGUE },
+                prefs[KEY_CALC_METHOD] ?: 2
+            ) { CalculationMethodOption.KARACHI },
             madhab = MadhabOption.values().getOrElse(
-                prefs[KEY_MADHAB] ?: 0
-            ) { MadhabOption.SHAFI },
+                prefs[KEY_MADHAB] ?: 1 // HANAFI ordinal is typically 1 but we'll use the fallback if it's absent
+            ) { MadhabOption.HANAFI },
             fajrNotification = prefs[KEY_FAJR_NOTIF] ?: true,
             dhuhrNotification = prefs[KEY_DHUHR_NOTIF] ?: true,
             asrNotification = prefs[KEY_ASR_NOTIF] ?: true,
             maghribNotification = prefs[KEY_MAGHRIB_NOTIF] ?: true,
             ishaNotification = prefs[KEY_ISHA_NOTIF] ?: true,
-            azanSound = prefs[KEY_AZAN_SOUND] ?: "Makkah",
+            azanSound = prefs[KEY_AZAN_SOUND] ?: "Makkah Azan",
             ramadanMode = prefs[KEY_RAMADAN_MODE] ?: false,
             isLocationSet = prefs[KEY_LOCATION_SET] ?: false,
             earlyReminderMins = prefs[KEY_EARLY_REMINDER_MINS] ?: 0,
@@ -98,12 +99,14 @@ class SettingsDataStore(private val context: Context) {
             lastLocationCheckTime = prefs[KEY_LAST_LOCATION_CHECK_TIME] ?: 0L,
             onboardingComplete = prefs[KEY_ONBOARDING_COMPLETE] ?: false,
             fontSizeMultiplier = prefs[KEY_FONT_SIZE_MULTIPLIER] ?: 1.0f,
-            fajrSound = prefs[KEY_FAJR_SOUND] ?: "Fajr Special",
-            dhuhrSound = prefs[KEY_DHUHR_SOUND] ?: "Makkah",
-            asrSound = prefs[KEY_ASR_SOUND] ?: "Makkah",
-            maghribSound = prefs[KEY_MAGHRIB_SOUND] ?: "Makkah",
-            ishaSound = prefs[KEY_ISHA_SOUND] ?: "Makkah",
-            isDarkMode = prefs[KEY_IS_DARK_MODE] ?: false,
+            fajrSound = prefs[KEY_FAJR_SOUND] ?: "Makkah Azan",
+            dhuhrSound = prefs[KEY_DHUHR_SOUND] ?: "Makkah Azan",
+            asrSound = prefs[KEY_ASR_SOUND] ?: "Makkah Azan",
+            maghribSound = prefs[KEY_MAGHRIB_SOUND] ?: "Makkah Azan",
+            ishaSound = prefs[KEY_ISHA_SOUND] ?: "Makkah Azan",
+            themeMode = ThemeMode.values().getOrElse(
+                prefs[KEY_THEME_MODE] ?: 0
+            ) { ThemeMode.SYSTEM },
             audioQuality = prefs[KEY_AUDIO_QUALITY] ?: "128"
         )
     }
@@ -247,9 +250,9 @@ class SettingsDataStore(private val context: Context) {
         }
     }
 
-    suspend fun updateIsDarkMode(isDark: Boolean) {
+    suspend fun updateThemeMode(mode: ThemeMode) {
         context.dataStore.edit { prefs ->
-            prefs[KEY_IS_DARK_MODE] = isDark
+            prefs[KEY_THEME_MODE] = mode.ordinal
         }
     }
 

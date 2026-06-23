@@ -247,7 +247,7 @@ fun SettingsScreen(
             SettingsSection("Calculation", Icons.Rounded.Tune) {
                 DropdownSetting(stringResource(R.string.calculation_method), settings.calculationMethod.displayName, CalculationMethodOption.values().map { it.displayName }) { viewModel.updateCalculationMethod(CalculationMethodOption.values()[it]) }
                 Spacer(Modifier.height(12.dp))
-                DropdownSetting("Madhab (Asr Calculation)", settings.madhab.displayName, MadhabOption.values().map { it.displayName }) { viewModel.updateMadhab(MadhabOption.values()[it]) }
+                DropdownSetting("Madhab (Namaz calculation)", settings.madhab.displayName, MadhabOption.values().map { it.displayName }) { viewModel.updateMadhab(MadhabOption.values()[it]) }
                 
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
@@ -268,16 +268,23 @@ fun SettingsScreen(
                 
                 val context = androidx.compose.ui.platform.LocalContext.current
                 val testNotification = { prayerName: String ->
-                    // For now, we will just show a toast or implement actual test logic if possible.
-                    // The actual sending of a test notification requires NotificationManager and a channel.
-                    val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                    val builder = androidx.core.app.NotificationCompat.Builder(context, "prayer_times")
-                        .setSmallIcon(R.drawable.ic_launcher_foreground) // Using a default icon
-                        .setContentTitle("$prayerName Test")
-                        .setContentText("This is a test notification for $prayerName.")
-                        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-                        .setAutoCancel(true)
-                    notificationManager.notify(prayerName.hashCode(), builder.build())
+                    val intent = Intent(context, com.example.prayertimes.service.AzanService::class.java).apply {
+                        putExtra(com.example.prayertimes.service.AzanService.EXTRA_PRAYER_NAME, "$prayerName (Test)")
+                        val assignedSound = when (prayerName) {
+                            "Fajr" -> settings.fajrSound
+                            "Dhuhr" -> settings.dhuhrSound
+                            "Asr" -> settings.asrSound
+                            "Maghrib" -> settings.maghribSound
+                            "Isha" -> settings.ishaSound
+                            else -> settings.azanSound
+                        }
+                        putExtra(com.example.prayertimes.service.AzanService.EXTRA_AZAN_SOUND, assignedSound)
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent)
+                    } else {
+                        context.startService(intent)
+                    }
                 }
 
                 PrayerNotificationRow(stringResource(R.string.fajr), getTimeForPrayer(com.example.prayertimes.data.model.Prayer.FAJR), settings.fajrNotification, { viewModel.updatePrayerNotification("fajr", it) }, { testNotification("Fajr") })
@@ -304,6 +311,7 @@ fun SettingsScreen(
                     mediaPlayer?.stop()
                     mediaPlayer?.release()
                     val resId = when (sound) {
+                        "Makkah Azan" -> com.example.prayertimes.R.raw.azan_asr_makkah
                         "Makkah" -> com.example.prayertimes.R.raw.azan_makkah
                         "Madinah" -> com.example.prayertimes.R.raw.azan_madinah
                         "Short Beep" -> com.example.prayertimes.R.raw.short_beep
@@ -315,13 +323,13 @@ fun SettingsScreen(
                             mediaPlayer = MediaPlayer.create(context, resId)
                             mediaPlayer?.start()
                             playingPrayer = prayer
-                            scope.launch {
-                                delay(3000)
+                            mediaPlayer?.setOnCompletionListener { mp ->
                                 if (playingPrayer == prayer) {
-                                    mediaPlayer?.stop()
-                                    mediaPlayer?.release()
-                                    mediaPlayer = null
-                                    playingPrayer = null
+                                    mp.release()
+                                    if (mediaPlayer == mp) {
+                                        mediaPlayer = null
+                                        playingPrayer = null
+                                    }
                                 }
                             }
                         } catch (e: Throwable) {}
@@ -536,7 +544,10 @@ fun SettingsScreen(
         AnimatedVisibility(visible, enter = fadeIn() + slideInVertically(initialOffsetY = { 100 }, animationSpec = spring(stiffness = Spring.StiffnessLow))) {
             SettingsSection(stringResource(R.string.appearance), Icons.Rounded.DarkMode) {
                 
-                SwitchSetting("Dark Mode", settings.isDarkMode, "Enable dark theme") { viewModel.updateIsDarkMode(it) }
+                val themeOptions = com.example.prayertimes.data.model.ThemeMode.values().map { it.displayName }
+                DropdownSetting("Theme Mode", settings.themeMode.displayName, themeOptions) {
+                    viewModel.updateThemeMode(com.example.prayertimes.data.model.ThemeMode.values()[it])
+                }
                 
                 SwitchSetting("24-hour time", settings.use24hrFormat, "Use 24-hour format instead of AM/PM") { viewModel.updateUse24hrFormat(it) }
                 
@@ -831,7 +842,7 @@ fun PrayerSoundDropdownRow(
     onUpdateSound: (String, String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val options = listOf("Makkah", "Madinah", "Short Beep", "Fajr Special", "Silent")
+    val options = listOf("Makkah Azan", "Makkah", "Madinah", "Short Beep", "Fajr Special", "Silent")
 
     Column {
         Text(prayerName, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))

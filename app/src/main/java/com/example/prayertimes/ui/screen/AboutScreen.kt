@@ -182,6 +182,34 @@ fun AboutScreen(onBackClick: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // What's New Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "What's New / حالیہ اپڈیٹس",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = com.example.prayertimes.theme.UrduFontFamily
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    UpdateItem("Added Hifz/Mushaf Mode for continuous Quran reading.", "قرآن پاک کی تلاوت کے لیے حفظ/مصحف موڈ شامل کیا گیا۔")
+                    UpdateItem("Smooth scrolling animation added to Quran reader.", "قرآن ریڈر میں سکرولنگ کو مزید بہتر بنایا گیا۔")
+                    UpdateItem("Detailed vector illustrations added for Wudu and Prayer guides.", "وضو اور نماز کے طریقوں کی تصاویر شامل کی گئیں۔")
+                    UpdateItem("Complete Qiyam text with full Arabic added to Prayer guide.", "نماز کے طریقے میں قیام کی مکمل دعا شامل کی گئی۔")
+                    UpdateItem("Prayer tracking statistics accurately calculates total missed prayers.", "چھوٹی ہوئی نمازوں کی گنتی کو درست کیا گیا۔")
+                    UpdateItem("Fixed location prompt bug and notification crash.", "لوکیشن اور نوٹیفکیشن کے مسائل حل کیے گئے۔")
+                    UpdateItem("Default calculation method updated to Karachi.", "نماز کے اوقات کا حساب اب کراچی کے مطابق ہے۔")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Features List
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -326,5 +354,33 @@ private fun ReciterRow(nameEn: String, nameAr: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = Gold500
         )
+    }
+}
+
+@Composable
+private fun UpdateItem(enText: String, urText: String) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(Icons.Rounded.Star, contentDescription = "Star", tint = Gold500, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = enText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 20.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = urText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Teal400,
+                    fontFamily = com.example.prayertimes.theme.UrduFontFamily,
+                    lineHeight = 24.sp,
+                    textAlign = TextAlign.Right,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }

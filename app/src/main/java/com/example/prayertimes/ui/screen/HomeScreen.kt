@@ -44,6 +44,9 @@ import com.example.prayertimes.ui.components.ShimmerPlaceholder
 import com.example.prayertimes.ui.components.bounceClick
 import com.example.prayertimes.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 
 @Composable
 fun HomeScreen(
@@ -72,6 +75,17 @@ fun HomeScreen(
         delay(100)
         visible = true
         isBatteryOptimized = !viewModel.isBatteryOptimizationIgnored()
+    }
+    
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isBatteryOptimized = !viewModel.isBatteryOptimizationIgnored()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     
     LaunchedEffect(settings.isLocationSet) {
@@ -123,7 +137,7 @@ fun HomeScreen(
                 Spacer(Modifier.height(16.dp))
                 Text("Set Your Location", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(8.dp))
-                Text("Go to Settings to detect your location\nor enter coordinates manually.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                Text("Go to Settings to detect your location\nor enter city manually.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
         } else {
             prayerTimes?.let { daily ->

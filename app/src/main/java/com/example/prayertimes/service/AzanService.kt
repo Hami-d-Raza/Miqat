@@ -38,7 +38,7 @@ class AzanService : Service() {
         }
 
         val prayerName = intent?.getStringExtra(EXTRA_PRAYER_NAME) ?: "Prayer"
-        val azanSound = intent?.getStringExtra(EXTRA_AZAN_SOUND) ?: "Makkah"
+        val azanSound = intent?.getStringExtra(EXTRA_AZAN_SOUND) ?: "Makkah Azan"
 
         if (azanSound != "Silent") {
             startForeground(NOTIFICATION_ID, createNotification(prayerName))
@@ -57,6 +57,7 @@ class AzanService : Service() {
         }
 
         val resId = when (azanSound) {
+            "Makkah Azan" -> R.raw.azan_asr_makkah
             "Makkah", "Fajr Special" -> R.raw.azan_makkah
             "Madinah" -> R.raw.azan_madinah
             "Short Beep" -> R.raw.short_beep
@@ -114,7 +115,7 @@ class AzanService : Service() {
 
     private fun createNotification(prayerName: String): android.app.Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,

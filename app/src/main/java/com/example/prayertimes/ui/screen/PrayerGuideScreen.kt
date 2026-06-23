@@ -135,7 +135,7 @@ fun GuideStepper(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 0.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
@@ -145,6 +145,9 @@ fun GuideStepper(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            
+            // Removed hero image from the top.
+
             // Step Indicator
             Row(
                 modifier = Modifier
@@ -196,62 +199,39 @@ fun GuideStepper(
                 val step = steps[page]
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text(
-                        text = "Step ${step.stepNumber}",
-                        color = Teal400,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = step.title,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    if (step.arabicText.isNotEmpty()) {
-                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                            Text(
-                                text = step.arabicText,
-                                fontSize = 28.sp,
-                                color = Gold500,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    
-                    if (step.transliteration.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
-                            text = step.transliteration,
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = "Step ${step.stepNumber}",
+                            color = Teal400,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = step.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
                             textAlign = TextAlign.Center
                         )
+                        
                         Spacer(modifier = Modifier.height(24.dp))
+                        
+                        Text(
+                            text = step.description,
+                            fontSize = 16.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 24.sp
+                        )
                     }
-                    
-                    Text(
-                        text = step.description,
-                        fontSize = 16.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 24.sp
-                    )
                 }
-            }
             }
         }
 

@@ -1,36 +1,24 @@
 package com.example.prayertimes.utils
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
-import androidx.work.Data
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
+import android.content.Intent
+import com.example.prayertimes.data.model.AppSettings
 import com.example.prayertimes.data.model.Prayer
-import com.example.prayertimes.worker.PrayerAlarmWorker
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import java.util.concurrent.TimeUnit
 import java.util.Calendar
-import com.example.prayertimes.data.model.AppSettings
 
 /**
- * Schedules prayer alarm notifications using WorkManager for reliability.
+ * Schedules prayer alarm notifications and reminders using AlarmManager.setAlarmClock for exact delivery.
  */
 object PrayerAlarmScheduler {
 
-    private const val WORK_TAG = "prayer_alarm"
-
     /**
-     * Schedules notifications for all enabled prayers.
+     * Schedules notifications for all enabled prayers and reminders.
      * Cancels any existing scheduled alarms first.
-     *
-     * @param context Application context
-     * @param prayerTimes Map of Prayer to their Instant times
-     * @param enabledPrayers Set of prayers that have notifications enabled
-     * @param azanSound The selected Azan sound name
-     * @param latitude User latitude for recalculation after alarm
-     * @param longitude User longitude for recalculation after alarm
      */
     fun schedulePrayerAlarms(
         context: Context,
@@ -38,217 +26,231 @@ object PrayerAlarmScheduler {
         enabledPrayers: Set<Prayer>,
         settings: AppSettings
     ) {
-        val workManager = WorkManager.getInstance(context)
-
-        // Cancel all existing prayer alarms
-        workManager.cancelAllWorkByTag(WORK_TAG)
-
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val now = System.currentTimeMillis()
 
+        // 1. Schedule Prayers and their related reminders (Early, Sehri, Jummah)
         for ((prayer, timeInfo) in prayerTimes) {
-            // Skip sunrise — no notification for sunrise
-            if (prayer == Prayer.SUNRISE) continue
-
-            // Skip disabled prayers
-            if (prayer !in enabledPrayers) continue
-
             val (instant, formattedTime) = timeInfo
             val prayerTimeMillis = instant.toEpochMilliseconds()
             val delay = prayerTimeMillis - now
 
-            // Only schedule future prayers
-            if (delay <= 0) continue
-
-            val soundToUse = when (prayer) {
-                Prayer.FAJR -> settings.fajrSound
-                Prayer.DHUHR -> settings.dhuhrSound
-                Prayer.ASR -> settings.asrSound
-                Prayer.MAGHRIB -> settings.maghribSound
-                Prayer.ISHA -> settings.ishaSound
-                else -> "Makkah" // Default fallback
-            }
-
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            val intent = android.content.Intent(context, com.example.prayertimes.receiver.PrayerAlarmReceiver::class.java).apply {
+            // Base intent for prayer
+            val prayerIntent = Intent(context, com.example.prayertimes.receiver.PrayerAlarmReceiver::class.java).apply {
                 putExtra("prayer_name", prayer.displayName)
                 putExtra("prayer_time", formattedTime)
+                val soundToUse = when (prayer) {
+                    Prayer.FAJR -> settings.fajrSound
+                    Prayer.DHUHR -> settings.dhuhrSound
+                    Prayer.ASR -> settings.asrSound
+                    Prayer.MAGHRIB -> settings.maghribSound
+                    Prayer.ISHA -> settings.ishaSound
+                    else -> "Makkah" // Default fallback
+                }
                 putExtra("azan_sound", soundToUse)
             }
-            val pendingIntent = android.app.PendingIntent.getBroadcast(
+            val prayerPendingIntent = PendingIntent.getBroadcast(
                 context,
                 prayer.ordinal, // unique ID per prayer
-                intent,
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                prayerIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            
-            // Cancel any existing alarm
-            alarmManager.cancel(pendingIntent)
-            
-            try {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, prayerTimeMillis, pendingIntent)
-                } else {
-                    alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, prayerTimeMillis, pendingIntent)
-                }
-            } catch (e: SecurityException) {
-                alarmManager.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, prayerTimeMillis, pendingIntent)
+
+            // Cancel any existing alarm for this prayer
+            alarmManager.cancel(prayerPendingIntent)
+
+            // Skip past prayers or disabled ones
+            if (delay > 0 && prayer != Prayer.SUNRISE && prayer in enabledPrayers) {
+                setExactAlarm(alarmManager, prayerTimeMillis, prayerPendingIntent)
             }
 
             // Early reminder
-            if (settings.earlyReminderMins > 0) {
-                val earlyDelay = delay - (settings.earlyReminderMins * 60 * 1000L)
-                if (earlyDelay > 0) {
-                    val earlyData = Data.Builder()
-                        .putString("prayer_name", prayer.displayName)
-                        .putString("prayer_time", formattedTime)
-                        .putInt("early_mins", settings.earlyReminderMins)
-                        .build()
-                    val earlyRequest = OneTimeWorkRequestBuilder<com.example.prayertimes.worker.EarlyReminderWorker>()
-                        .setInitialDelay(earlyDelay, TimeUnit.MILLISECONDS)
-                        .setInputData(earlyData)
-                        .addTag(WORK_TAG)
-                        .build()
-                    workManager.enqueueUniqueWork(
-                        "early_reminder_${prayer.name}",
-                        ExistingWorkPolicy.REPLACE,
-                        earlyRequest
-                    )
+            val earlyIdOffset = 100
+            val earlyPendingIntent = PendingIntent.getBroadcast(
+                context,
+                prayer.ordinal + earlyIdOffset,
+                Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java).apply {
+                    putExtra("reminder_type", "early")
+                    putExtra("prayer_name", prayer.displayName)
+                    putExtra("prayer_time", formattedTime)
+                    putExtra("early_mins", settings.earlyReminderMins)
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(earlyPendingIntent)
+
+            if (settings.earlyReminderMins > 0 && delay > (settings.earlyReminderMins * 60 * 1000L)) {
+                val earlyTimeMillis = prayerTimeMillis - (settings.earlyReminderMins * 60 * 1000L)
+                setExactAlarm(alarmManager, earlyTimeMillis, earlyPendingIntent)
+            }
+
+            // Sehri Warning
+            if (prayer == Prayer.FAJR) {
+                val sehriPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    200,
+                    Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java).apply {
+                        putExtra("reminder_type", "sehri")
+                        putExtra("fajr_time", formattedTime)
+                    },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(sehriPendingIntent)
+
+                if (settings.ramadanMode && delay > (20 * 60 * 1000L)) {
+                    val sehriTimeMillis = prayerTimeMillis - (20 * 60 * 1000L)
+                    setExactAlarm(alarmManager, sehriTimeMillis, sehriPendingIntent)
                 }
             }
-            
-            // Jummah reminder
-            if (prayer == Prayer.DHUHR && settings.jummahReminder) {
-                val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-                if (localDate.dayOfWeek == kotlinx.datetime.DayOfWeek.FRIDAY) {
-                    val jummahDelay = delay - (60 * 60 * 1000L)
-                    if (jummahDelay > 0) {
-                        val jummahData = Data.Builder()
-                            .putString("dhuhr_time", formattedTime)
-                            .build()
-                        val jummahRequest = OneTimeWorkRequestBuilder<com.example.prayertimes.worker.JummahReminderWorker>()
-                            .setInitialDelay(jummahDelay, TimeUnit.MILLISECONDS)
-                            .setInputData(jummahData)
-                            .addTag(WORK_TAG)
-                            .build()
-                        workManager.enqueueUniqueWork(
-                            "jummah_reminder",
-                            ExistingWorkPolicy.REPLACE,
-                            jummahRequest
-                        )
+
+            // Jummah Reminder
+            if (prayer == Prayer.DHUHR) {
+                val jummahPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    300,
+                    Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java).apply {
+                        putExtra("reminder_type", "jummah")
+                        putExtra("dhuhr_time", formattedTime)
+                    },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(jummahPendingIntent)
+
+                if (settings.jummahReminder) {
+                    val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+                    if (localDate.dayOfWeek == kotlinx.datetime.DayOfWeek.FRIDAY && delay > (60 * 60 * 1000L)) {
+                        val jummahTimeMillis = prayerTimeMillis - (60 * 60 * 1000L)
+                        setExactAlarm(alarmManager, jummahTimeMillis, jummahPendingIntent)
                     }
                 }
             }
-            
-            // Sehri Warning
-            if (prayer == Prayer.FAJR && settings.ramadanMode) {
-                val sehriDelay = delay - (20 * 60 * 1000L)
-                if (sehriDelay > 0) {
-                    val sehriData = Data.Builder()
-                        .putString("fajr_time", formattedTime)
-                        .build()
-                    val sehriRequest = OneTimeWorkRequestBuilder<com.example.prayertimes.worker.SehriWarningWorker>()
-                        .setInitialDelay(sehriDelay, TimeUnit.MILLISECONDS)
-                        .setInputData(sehriData)
-                        .addTag(WORK_TAG)
-                        .build()
-                    workManager.enqueueUniqueWork(
-                        "sehri_warning",
-                        ExistingWorkPolicy.REPLACE,
-                        sehriRequest
-                    )
-                }
+        }
+
+        // 2. Surah Al-Kahf Reminders
+        val thursPendingIntent = PendingIntent.getBroadcast(
+            context,
+            400,
+            Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java).apply {
+                putExtra("reminder_type", "kahf")
+                putExtra("kahf_title", "Thursday Night Kahf")
+                putExtra("kahf_msg", "Thursday night has begun. It's highly recommended to recite Surah Al-Kahf.")
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val friPendingIntent = PendingIntent.getBroadcast(
+            context,
+            401,
+            Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java).apply {
+                putExtra("reminder_type", "kahf")
+                putExtra("kahf_title", "Friday Kahf Reminder")
+                putExtra("kahf_msg", "Don't forget to read Surah Al-Kahf before Maghrib.")
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(thursPendingIntent)
+        alarmManager.cancel(friPendingIntent)
+
+        if (settings.kahfReminder) {
+            val thursCal = Calendar.getInstance().apply {
+                set(Calendar.DAY_OF_WEEK, Calendar.THURSDAY)
+                set(Calendar.HOUR_OF_DAY, 20)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                if (timeInMillis <= now) add(Calendar.WEEK_OF_YEAR, 1)
+            }
+            setExactAlarm(alarmManager, thursCal.timeInMillis, thursPendingIntent)
+
+            val friCal = Calendar.getInstance().apply {
+                set(Calendar.DAY_OF_WEEK, Calendar.FRIDAY)
+                set(Calendar.HOUR_OF_DAY, 8)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                if (timeInMillis <= now) add(Calendar.WEEK_OF_YEAR, 1)
+            }
+            setExactAlarm(alarmManager, friCal.timeInMillis, friPendingIntent)
+        }
+
+        // 3. Daily Hadith Reminder
+        val hadithPendingIntent = PendingIntent.getBroadcast(
+            context,
+            500,
+            Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java).apply {
+                putExtra("reminder_type", "hadith")
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(hadithPendingIntent)
+
+        if (settings.hadithNotificationEnabled) {
+            val parts = settings.hadithNotificationTime.split(":")
+            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 7
+            val min = parts.getOrNull(1)?.toIntOrNull() ?: 0
+
+            val hadithCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, min)
+                set(Calendar.SECOND, 0)
+                if (timeInMillis <= now) add(Calendar.DAY_OF_YEAR, 1)
+            }
+            setExactAlarm(alarmManager, hadithCal.timeInMillis, hadithPendingIntent)
+        }
+    }
+
+    private fun setExactAlarm(alarmManager: AlarmManager, timeMillis: Long, pendingIntent: PendingIntent) {
+        try {
+            // setAlarmClock completely bypasses Doze mode and guarantees exact delivery.
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(timeMillis, pendingIntent)
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+        } catch (e: Exception) {
+            // Fallback just in case
+            try {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMillis, pendingIntent)
+            } catch (e2: SecurityException) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMillis, pendingIntent)
             }
         }
-        
-        // Surah Al-Kahf Reminder
-        if (settings.kahfReminder) {
-            scheduleKahfReminders(context)
-        } else {
-            workManager.cancelUniqueWork("kahf_thursday")
-            workManager.cancelUniqueWork("kahf_friday")
-        }
-        
-        // Daily Hadith Notification
-        if (settings.hadithNotificationEnabled) {
-            scheduleDailyHadith(context, settings.hadithNotificationTime)
-        } else {
-            workManager.cancelUniqueWork("daily_hadith")
-        }
-    }
-    
-    private fun scheduleKahfReminders(context: Context) {
-        val workManager = WorkManager.getInstance(context)
-        val now = Calendar.getInstance()
-        
-        // Thursday 20:00
-        val thursCal = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_WEEK, Calendar.THURSDAY)
-            set(Calendar.HOUR_OF_DAY, 20)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            if (before(now)) add(Calendar.WEEK_OF_YEAR, 1)
-        }
-        val thursDelay = thursCal.timeInMillis - now.timeInMillis
-        val thursRequest = OneTimeWorkRequestBuilder<com.example.prayertimes.worker.KahfThursdayWorker>()
-            .setInitialDelay(thursDelay, TimeUnit.MILLISECONDS)
-            .addTag(WORK_TAG)
-            .build()
-        workManager.enqueueUniqueWork("kahf_thursday", ExistingWorkPolicy.REPLACE, thursRequest)
-        
-        // Friday 08:00
-        val friCal = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_WEEK, Calendar.FRIDAY)
-            set(Calendar.HOUR_OF_DAY, 8)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            if (before(now)) add(Calendar.WEEK_OF_YEAR, 1)
-        }
-        val friDelay = friCal.timeInMillis - now.timeInMillis
-        val friRequest = OneTimeWorkRequestBuilder<com.example.prayertimes.worker.KahfFridayWorker>()
-            .setInitialDelay(friDelay, TimeUnit.MILLISECONDS)
-            .addTag(WORK_TAG)
-            .build()
-        workManager.enqueueUniqueWork("kahf_friday", ExistingWorkPolicy.REPLACE, friRequest)
-    }
-    
-    private fun scheduleDailyHadith(context: Context, timeStr: String) {
-        val workManager = WorkManager.getInstance(context)
-        val parts = timeStr.split(":")
-        val hour = parts.getOrNull(0)?.toIntOrNull() ?: 7
-        val min = parts.getOrNull(1)?.toIntOrNull() ?: 0
-        
-        val now = Calendar.getInstance()
-        val nextRun = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, min)
-            set(Calendar.SECOND, 0)
-            if (before(now)) add(Calendar.DAY_OF_YEAR, 1)
-        }
-        val delay = nextRun.timeInMillis - now.timeInMillis
-        
-        val request = OneTimeWorkRequestBuilder<com.example.prayertimes.worker.DailyHadithWorker>()
-            .setInitialDelay(delay, TimeUnit.MILLISECONDS)
-            .addTag(WORK_TAG)
-            .build()
-        workManager.enqueueUniqueWork("daily_hadith", ExistingWorkPolicy.REPLACE, request)
     }
 
     /**
      * Cancels all scheduled prayer alarms.
      */
     fun cancelAllAlarms(context: Context) {
-        WorkManager.getInstance(context).cancelAllWorkByTag(WORK_TAG)
-        
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // Cancel prayers and their early reminders
         for (prayer in Prayer.values()) {
-            val intent = android.content.Intent(context, com.example.prayertimes.receiver.PrayerAlarmReceiver::class.java)
-            val pendingIntent = android.app.PendingIntent.getBroadcast(
+            val prayerIntent = Intent(context, com.example.prayertimes.receiver.PrayerAlarmReceiver::class.java)
+            val prayerPendingIntent = PendingIntent.getBroadcast(
                 context,
                 prayer.ordinal,
-                intent,
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                prayerIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            alarmManager.cancel(pendingIntent)
+            alarmManager.cancel(prayerPendingIntent)
+
+            val earlyIntent = Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java)
+            val earlyPendingIntent = PendingIntent.getBroadcast(
+                context,
+                prayer.ordinal + 100,
+                earlyIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(earlyPendingIntent)
         }
+
+        val baseIntent = Intent(context, com.example.prayertimes.receiver.ReminderAlarmReceiver::class.java)
+        
+        // Sehri
+        alarmManager.cancel(PendingIntent.getBroadcast(context, 200, baseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+        
+        // Jummah
+        alarmManager.cancel(PendingIntent.getBroadcast(context, 300, baseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+        
+        // Kahf
+        alarmManager.cancel(PendingIntent.getBroadcast(context, 400, baseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+        alarmManager.cancel(PendingIntent.getBroadcast(context, 401, baseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+        
+        // Hadith
+        alarmManager.cancel(PendingIntent.getBroadcast(context, 500, baseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
     }
 }

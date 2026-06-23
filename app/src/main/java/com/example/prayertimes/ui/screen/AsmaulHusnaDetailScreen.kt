@@ -104,6 +104,7 @@ fun AsmaulHusnaDetailScreen(
                 text = divineName.arabic,
                 fontSize = 64.sp,
                 color = categoryColor,
+                fontFamily = com.example.prayertimes.theme.ArabicFontFamily,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )

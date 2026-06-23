@@ -9,6 +9,7 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Locale
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Provides the result of a location request.
@@ -74,21 +75,11 @@ class LocationRepository(private val context: Context) {
                 if (loc != null) {
                     continuation.resume(loc)
                 } else {
-                    continuation.resume(
-                        android.location.Location("default").apply {
-                            latitude = 21.4225
-                            longitude = 39.8262
-                        }
-                    )
+                    continuation.resumeWithException(Exception("Location not found"))
                 }
             }
             .addOnFailureListener {
-                continuation.resume(
-                    android.location.Location("default").apply {
-                        latitude = 21.4225
-                        longitude = 39.8262
-                    }
-                )
+                continuation.resumeWithException(it)
             }
     }
 

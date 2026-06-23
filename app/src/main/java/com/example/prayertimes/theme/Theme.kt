@@ -33,15 +33,15 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Teal800,
-    onPrimary = LightSurface,
-    primaryContainer = Teal200,
-    onPrimaryContainer = Teal800,
+    primary = LightPrimary,
+    onPrimary = androidx.compose.ui.graphics.Color.White,
+    primaryContainer = LightPrimaryContainer,
+    onPrimaryContainer = LightOnPrimaryContainer,
     secondary = Gold700,
     onSecondary = LightSurface,
     secondaryContainer = Gold100,
     onSecondaryContainer = Gold700,
-    tertiary = Teal400,
+    tertiary = LightPrimary,
     background = LightSurface,
     onBackground = LightOnSurface,
     surface = LightSurface,
@@ -76,3 +76,7 @@ fun PrayerTimesTheme(
         content = content
     )
 }
+
+val MaterialTheme.arabicTextColor: androidx.compose.ui.graphics.Color
+    @Composable
+    get() = if (colorScheme.background == LightSurface) androidx.compose.ui.graphics.Color.Black else Gold500

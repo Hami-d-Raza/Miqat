@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.example.prayertimes.data.model.Surah
 import com.example.prayertimes.theme.Teal400
 import com.example.prayertimes.theme.Gold500
+import com.example.prayertimes.theme.arabicTextColor
 import com.example.prayertimes.ui.components.ShimmerPlaceholder
 import com.example.prayertimes.viewmodel.QuranViewModel
 
@@ -221,7 +222,8 @@ fun SurahItem(surah: Surah, isDownloaded: Boolean = false, onClick: () -> Unit) 
                 text = surah.nameArabic,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
-                color = Gold500
+                color = MaterialTheme.arabicTextColor,
+                fontFamily = com.example.prayertimes.theme.ArabicFontFamily
             )
             val juzNumber = if (surah.number in 1..114) surahStartingJuz[surah.number] else 1
             Row(verticalAlignment = Alignment.CenterVertically) {

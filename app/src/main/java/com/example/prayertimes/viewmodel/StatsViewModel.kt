@@ -219,7 +219,6 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     fun getAllTimeStats(): Triple<Int, Int, Int> {
         val records = _allRecords.value
         val totalOffered = records.count { it.isOffered }
-        val totalMissed = records.count { !it.isOffered }
         
         val firstRecord = records.minByOrNull { it.date }
         val daysActive = if (firstRecord != null) {
@@ -231,6 +230,9 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
                 (diffInMillies / (1000 * 60 * 60 * 24)).toInt() + 1
             } else 0
         } else 0
+        
+        val totalPossible = daysActive * 5
+        val totalMissed = if (daysActive > 0) totalPossible - totalOffered else 0
         
         return Triple(totalOffered, totalMissed, daysActive)
     }

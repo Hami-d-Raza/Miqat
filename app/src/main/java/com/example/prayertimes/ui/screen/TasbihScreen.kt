@@ -148,7 +148,10 @@ fun TasbihScreen(
             fontSize = 48.sp,
             fontWeight = FontWeight.Bold,
             color = Gold500,
-            style = MaterialTheme.typography.headlineLarge.copy(textDirection = TextDirection.Rtl)
+            style = MaterialTheme.typography.headlineLarge.copy(
+                textDirection = TextDirection.Rtl,
+                fontFamily = com.example.prayertimes.theme.ArabicFontFamily
+            )
         )
         Spacer(Modifier.height(8.dp))
         Text(

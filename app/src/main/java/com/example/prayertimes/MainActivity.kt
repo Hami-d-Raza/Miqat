@@ -8,6 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.Priority
+import com.google.android.gms.common.api.ResolvableApiException
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -34,12 +40,43 @@ class MainActivity : ComponentActivity() {
 
     private val settingsDataStore by lazy { SettingsDataStore(this) }
 
+    private val gpsResolutionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        // GPS prompt handled
+    }
+
+    @android.annotation.SuppressLint("InvalidFragmentVersionForActivityResult")
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Location permissions handled — the ViewModel will use them
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fineGranted || coarseGranted) {
+            checkAndPromptLocationSettings()
+        }
     }
 
+    private fun checkAndPromptLocationSettings() {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000).build()
+        val builder = LocationSettingsRequest.Builder().addLocationRequest(locationRequest)
+        val client = LocationServices.getSettingsClient(this)
+        
+        client.checkLocationSettings(builder.build())
+            .addOnFailureListener { exception ->
+                if (exception is ResolvableApiException) {
+                    try {
+                        gpsResolutionLauncher.launch(
+                            IntentSenderRequest.Builder(exception.resolution).build()
+                        )
+                    } catch (sendEx: Exception) {
+                        // Ignore error
+                    }
+                }
+            }
+    }
+
+    @android.annotation.SuppressLint("InvalidFragmentVersionForActivityResult")
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -47,30 +84,21 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("MIQAT_FATAL", "=== FATAL CRASH ===")
             android.util.Log.e("MIQAT_FATAL", "Thread: ${thread.name}")
             android.util.Log.e("MIQAT_FATAL", "Error: ${throwable.message}")
             android.util.Log.e("MIQAT_FATAL", "Cause: ${throwable.cause}")
             throwable.printStackTrace()
+            defaultHandler?.uncaughtException(thread, throwable)
         }
 
+        setTheme(R.style.Theme_App_Starting)
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         
-        splashScreen.setOnExitAnimationListener { splashScreenViewProvider ->
-            val iconView = splashScreenViewProvider.iconView
-            val scaleX = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 0.5f, 1.0f)
-            val scaleY = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 0.5f, 1.0f)
-            val alpha = ObjectAnimator.ofFloat(iconView, View.ALPHA, 0f, 1.0f)
-
-            val animatorSet = AnimatorSet()
-            animatorSet.playTogether(scaleX, scaleY, alpha)
-            animatorSet.duration = 1200L
-            animatorSet.doOnEnd { splashScreenViewProvider.remove() }
-            animatorSet.start()
-        }
-
+        // Animation removed to prevent notification ANRs
         // Request permissions
         requestLocationPermissions()
         requestNotificationPermission()
@@ -81,8 +109,12 @@ class MainActivity : ComponentActivity() {
                 initial = com.example.prayertimes.data.model.AppSettings()
             )
 
-            val darkTheme = settings.isDarkMode
-
+            val isSystemDark = isSystemInDarkTheme()
+            val darkTheme = when (settings.themeMode) {
+                com.example.prayertimes.data.model.ThemeMode.DARK -> true
+                com.example.prayertimes.data.model.ThemeMode.LIGHT -> false
+                com.example.prayertimes.data.model.ThemeMode.SYSTEM -> isSystemDark
+            }
 
             PrayerTimesTheme(darkTheme = darkTheme) {
                 val currentDensity = androidx.compose.ui.platform.LocalDensity.current

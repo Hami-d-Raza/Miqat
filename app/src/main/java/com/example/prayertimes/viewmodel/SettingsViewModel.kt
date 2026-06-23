@@ -7,6 +7,7 @@ import com.example.prayertimes.data.datastore.SettingsDataStore
 import com.example.prayertimes.data.model.AppSettings
 import com.example.prayertimes.data.model.CalculationMethodOption
 import com.example.prayertimes.data.model.MadhabOption
+import com.example.prayertimes.data.model.ThemeMode
 import com.example.prayertimes.repository.LocationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -286,9 +287,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateIsDarkMode(isDark: Boolean) {
+    fun updateThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
-            settingsDataStore.updateIsDarkMode(isDark)
+            settingsDataStore.updateThemeMode(mode)
         }
     }
 

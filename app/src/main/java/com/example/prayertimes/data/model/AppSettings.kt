@@ -10,8 +10,8 @@ data class AppSettings(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val cityName: String = "",
-    val calculationMethod: CalculationMethodOption = CalculationMethodOption.MUSLIM_WORLD_LEAGUE,
-    val madhab: MadhabOption = MadhabOption.SHAFI,
+    val calculationMethod: CalculationMethodOption = CalculationMethodOption.KARACHI,
+    val madhab: MadhabOption = MadhabOption.HANAFI,
     val fajrNotification: Boolean = true,
     val dhuhrNotification: Boolean = true,
     val asrNotification: Boolean = true,
@@ -36,12 +36,12 @@ data class AppSettings(
     val lastLocationCheckTime: Long = 0L,
     val onboardingComplete: Boolean = false,
     val fontSizeMultiplier: Float = 1.0f,
-    val fajrSound: String = "Fajr Special",
-    val dhuhrSound: String = "Makkah",
-    val asrSound: String = "Makkah",
-    val maghribSound: String = "Makkah",
-    val ishaSound: String = "Makkah",
-    val isDarkMode: Boolean = false,
+    val fajrSound: String = "Makkah Azan",
+    val dhuhrSound: String = "Makkah Azan",
+    val asrSound: String = "Makkah Azan",
+    val maghribSound: String = "Makkah Azan",
+    val ishaSound: String = "Makkah Azan",
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val audioQuality: String = "128"
 )
 
@@ -61,4 +61,10 @@ enum class CalculationMethodOption(val displayName: String, val adhanMethod: Cal
 enum class MadhabOption(val displayName: String, val adhanMadhab: Madhab) {
     SHAFI("Shafi'i / Maliki / Hanbali", Madhab.SHAFI),
     HANAFI("Hanafi", Madhab.HANAFI)
+}
+
+enum class ThemeMode(val displayName: String) {
+    SYSTEM("System Default"),
+    LIGHT("Light Mode"),
+    DARK("Dark Mode")
 }

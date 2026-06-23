@@ -44,6 +44,7 @@ import com.example.prayertimes.data.model.Dua
 import com.example.prayertimes.data.model.DuaCategory
 import com.example.prayertimes.data.model.DuasData
 import com.example.prayertimes.theme.Gold500
+import com.example.prayertimes.theme.arabicTextColor
 import com.example.prayertimes.theme.Teal400
 import com.example.prayertimes.viewmodel.DuasViewModel
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -415,15 +416,16 @@ private fun DuaCard(
             Spacer(Modifier.height(12.dp))
 
             // Arabic text
-            Box(Modifier.fillMaxWidth()) {
-                androidx.compose.foundation.text.BasicText(
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) {
+                Text(
                     text = dua.arabic,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 24.sp,
+                        fontFamily = com.example.prayertimes.theme.ArabicFontFamily,
                         textDirection = TextDirection.Rtl,
                         lineHeight = 42.sp,
-                        color = Gold500,
-                        textAlign = TextAlign.End
+                        color = MaterialTheme.arabicTextColor,
+                        textAlign = TextAlign.Start
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )

@@ -23,10 +23,10 @@ object NotificationHelper {
     
     // Batch 2 Reminder Channels
     const val CHANNEL_ID_REMINDERS = "prayer_reminders"
-    const val CHANNEL_ID_KAHF = "kahf_reminders"
-    const val CHANNEL_ID_HADITH = "hadith_reminders"
+    const val CHANNEL_ID_KAHF = "kahf_reminders_channel"
+    const val CHANNEL_ID_HADITH = "hadith_channel"
     const val CHANNEL_ID_SEHRI = "sehri_reminders"
-    private const val NOTIFICATION_BASE_ID = 1000
+    const val NOTIFICATION_BASE_ID = 1000
 
     /**
      * Creates notification channels for prayer alarms.
@@ -107,7 +107,7 @@ object NotificationHelper {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
             context, 0, intent,
@@ -115,7 +115,7 @@ object NotificationHelper {
         )
 
         val channelId = when (azanSound) {
-            "Makkah", "Fajr Special" -> CHANNEL_ID_MAKKAH
+            "Makkah Azan", "Makkah", "Fajr Special" -> CHANNEL_ID_MAKKAH
             "Madinah" -> CHANNEL_ID_MADINAH
             "Short Beep" -> CHANNEL_ID_SHORT_BEEP
             else -> CHANNEL_ID_SILENT
@@ -152,7 +152,7 @@ object NotificationHelper {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
             context, 0, intent,

@@ -194,6 +194,7 @@ fun DivineNameCard(divineName: DivineName, onClick: () -> Unit) {
                 text = divineName.arabic,
                 style = MaterialTheme.typography.headlineMedium,
                 color = categoryColor,
+                fontFamily = com.example.prayertimes.theme.ArabicFontFamily,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
